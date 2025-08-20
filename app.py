@@ -1,6 +1,12 @@
 # --- SQL Export Save Endpoint ---
 from flask import request
 
+app = Flask(__name__)
+register_sql_scripts_endpoint(app)
+app.config['UPLOAD_FOLDER'] = 'uploads'
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
+
+# --- SQL Export Save Endpoint ---
 @app.route('/save_sql_export', methods=['POST'])
 def save_sql_export():
     data = request.get_json() or {}
