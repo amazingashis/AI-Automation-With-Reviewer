@@ -360,6 +360,7 @@
                             </div>
                             <div class="col-auto">
                                 <button type="button" class="btn btn-success" id="downloadNotebookBtn" disabled><i class="fas fa-download"></i> Download as Notebook (.ipynb)</button>
+                                <button type="button" class="btn btn-secondary ms-2" id="downloadSqlBtn" disabled><i class="fas fa-file-download"></i> Download as SQL (.sql)</button>
                             </div>
                         </form>
                         <div id="sqlScriptChunks" style="max-height:350px; overflow-y:auto;"></div>
@@ -378,7 +379,8 @@
         const outputTable = document.getElementById('sqlOutputTable').value || 'output_Table';
         document.getElementById('sqlGenStatus').innerHTML = 'Generating SQL scripts...';
         document.getElementById('sqlScriptChunks').innerHTML = '';
-        document.getElementById('downloadNotebookBtn').disabled = true;
+    document.getElementById('downloadNotebookBtn').disabled = true;
+    document.getElementById('downloadSqlBtn').disabled = true;
         fetch('/generate_sql_scripts', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -395,6 +397,7 @@
                 document.getElementById('sqlScriptChunks').innerHTML = html;
                 document.getElementById('sqlGenStatus').innerHTML = '<span class="text-success">SQL scripts generated.</span>';
                 document.getElementById('downloadNotebookBtn').disabled = false;
+                document.getElementById('downloadSqlBtn').disabled = false;
             } else {
                 document.getElementById('sqlGenStatus').innerHTML = '<span class="text-danger">Error: ' + (data.error || 'Failed to generate SQL scripts') + '</span>';
             }
@@ -437,6 +440,20 @@
         const a = document.createElement('a');
         a.href = url;
         a.download = 'domain_model_etl.sql.ipynb';
+        a.click();
+        URL.revokeObjectURL(url);
+    });
+
+    // Download as SQL (.sql)
+    document.getElementById('downloadSqlBtn').addEventListener('click', function() {
+        if (!lastSqlChunks.length) return;
+        // Join all SQL chunks with two newlines between
+        const sqlContent = lastSqlChunks.join('\n\n');
+        const blob = new Blob([sqlContent], {type: 'text/sql'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'domain_model_etl.sql';
         a.click();
         URL.revokeObjectURL(url);
     });
