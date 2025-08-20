@@ -27,12 +27,9 @@ def save_sql_export():
         return jsonify({'success': True, 'path': file_path})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
+
 # --- SQL Script Generation Endpoint ---
 from sql_generator import generate_sql_scripts
-
-# ...existing code...
-
-# Place this after the Flask app is created
 
 def register_sql_scripts_endpoint(app):
     @app.route('/generate_sql_scripts', methods=['POST'])
@@ -56,6 +53,7 @@ def register_sql_scripts_endpoint(app):
         except Exception as e:
             import traceback
             return jsonify({'success': False, 'error': str(e), 'trace': traceback.format_exc()})
+
 # --- Data Dictionary & Domain Model Parsing Utilities ---
 import pandas as pd
 
