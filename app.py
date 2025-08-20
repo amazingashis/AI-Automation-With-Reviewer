@@ -1,36 +1,21 @@
 
+
 # --- Flask Imports ---
 from flask import Flask, request, render_template, jsonify, redirect, url_for
-
-
-app = Flask(__name__)
-app.config['UPLOAD_FOLDER'] = 'uploads'
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
-
-# ...existing code...
-
-# Register SQL scripts endpoint after its definition
-register_sql_scripts_endpoint(app)
-
-# --- SQL Export Save Endpoint ---
-@app.route('/save_sql_export', methods=['POST'])
-def save_sql_export():
-    data = request.get_json() or {}
-    sql_content = data.get('sql_content')
-    filename = data.get('filename', 'domain_model_etl.sql')
-    reviewed_dir = os.path.join('code-reviewer-feature-databricks', 'Reviewed_files')
-    os.makedirs(reviewed_dir, exist_ok=True)
-    file_path = os.path.join(reviewed_dir, filename)
-    try:
-        with open(file_path, 'w', encoding='utf-8') as f:
-            f.write(sql_content or '')
-        return jsonify({'success': True, 'path': file_path})
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)})
-
 # --- SQL Script Generation Endpoint ---
 from sql_generator import generate_sql_scripts
+import pandas as pd
+import csv
+import os
+import json
+from werkzeug.utils import secure_filename
+import re
+from llm_mapper import generate_mappings as llm_generate_mappings
+from dotenv import load_dotenv
+from utils import parse_domain_model, parse_data_dict
+import openai
 
+# --- SQL Script Generation Endpoint ---
 def register_sql_scripts_endpoint(app):
     @app.route('/generate_sql_scripts', methods=['POST'])
     def generate_sql_scripts_endpoint():
@@ -53,6 +38,53 @@ def register_sql_scripts_endpoint(app):
         except Exception as e:
             import traceback
             return jsonify({'success': False, 'error': str(e), 'trace': traceback.format_exc()})
+
+# --- SQL Export Save Endpoint ---
+def save_sql_export():
+    data = request.get_json() or {}
+    sql_content = data.get('sql_content')
+    filename = data.get('filename', 'domain_model_etl.sql')
+    reviewed_dir = os.path.join('code-reviewer-feature-databricks', 'Reviewed_files')
+    os.makedirs(reviewed_dir, exist_ok=True)
+    file_path = os.path.join(reviewed_dir, filename)
+    try:
+        with open(file_path, 'w', encoding='utf-8') as f:
+            f.write(sql_content or '')
+        return jsonify({'success': True, 'path': file_path})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+# --- LLM Context Builder ---
+def build_llm_context(data_dict_df, domain_model_df):
+    context = []
+    context.append('SOURCE DATA COLUMNS (sample):')
+    for _, row in data_dict_df.head(20).iterrows():
+        context.append(f"- {row['column_name']} ({row.get('data_type','')}): {row.get('description','')}")
+    context.append('\nTARGET DOMAIN MODEL:')
+    for _, row in domain_model_df.iterrows():
+        context.append(f"- {row['column_name']} ({row.get('data_type','')}): {row.get('description','')}")
+    context.append('\nTASK: Map each source field to the most appropriate stage field.')
+    return '\n'.join(context)
+
+# Helper to read uploaded context files (or fallback to default)
+def get_context_file(path, default):
+    try:
+        with open(path, 'r', encoding='utf-8') as f:
+            return f.read()
+    except Exception:
+        return default
+
+# ...existing code...
+
+load_dotenv()
+
+app = Flask(__name__)
+app.config['UPLOAD_FOLDER'] = 'uploads'
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
+
+# Register SQL scripts endpoint after its definition
+register_sql_scripts_endpoint(app)
+app.add_url_rule('/save_sql_export', view_func=save_sql_export, methods=['POST'])
 
 # --- Data Dictionary & Domain Model Parsing Utilities ---
 import pandas as pd
