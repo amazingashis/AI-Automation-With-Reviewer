@@ -1,0 +1,974 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Mapping Tool - Eligibility</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .mapping-container {
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            background-color: #f8f9fa;
+        }
+        .stage-field {
+            background-color: #e3f2fd;
+            padding: 8px;
+            border-radius: 5px;
+            border-left: 4px solid #2196f3;
+            font-weight: bold;
+        }
+        .mapping-input {
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+        .source-header {
+            background-color: #fff3e0;
+            padding: 8px;
+            border-radius: 3px;
+            margin: 2px;
+            cursor: pointer;
+            border: 1px solid #ffcc02;
+            font-size: 12px;
+        }
+        .source-header:hover {
+            background-color: #ffe0b2;
+        }
+        .transformation-rule {
+            background-color: #f3e5f5;
+            padding: 8px;
+            border-radius: 3px;
+            margin: 2px;
+            cursor: pointer;
+            border: 1px solid #9c27b0;
+            font-size: 12px;
+        }
+        .transformation-rule:hover {
+            background-color: #e1bee7;
+        }
+        .preview-result {
+            background-color: #e8f5e8;
+            border: 1px solid #4caf50;
+            padding: 5px;
+            border-radius: 3px;
+            font-size: 11px;
+            margin-top: 5px;
+        }
+        .sidebar {
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        .function-helper {
+            background-color: #fff;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .table th {
+            background-color: #343a40 !important;
+            color: white !important;
+            font-weight: bold;
+        }
+        .table td {
+            vertical-align: middle;
+            padding: 8px;
+        }
+        .btn-sm {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.75rem;
+        }
+        .input-group-append .btn {
+            border-radius: 0;
+        }
+        .input-group-append .btn:last-child {
+            border-top-right-radius: 0.25rem;
+            border-bottom-right-radius: 0.25rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid mt-4">
+        <div class="row">
+            <div class="col-12">
+                <h1 class="text-center mb-4">
+                    <i class="fas fa-exchange-alt"></i> Data Mapping Tool - Eligibility
+                </h1>
+            </div>
+        </div>
+
+        <!-- Upload Section at Top -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-upload"></i> Upload Source File & Context</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="uploadForm" enctype="multipart/form-data" class="row g-2 align-items-center mb-2">
+                            <div class="col-auto flex-grow-1">
+                                <input type="file" class="form-control" id="sourceFile" name="source_file" accept=".csv" required>
+                            </div>
+                            <div class="col-auto">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-upload"></i> Upload Source File
+                                </button>
+                            </div>
+                            <div class="col-auto">
+                                <button type="button" class="btn btn-success" id="generateLLMBtn" disabled>
+                                    <i class="fas fa-magic"></i> Generate Mappings
+                                </button>
+                            </div>
+                        </form>
+                        <form id="uploadDataDictForm" enctype="multipart/form-data" class="row g-2 align-items-center mb-2">
+                            <div class="col-auto flex-grow-1">
+                                <input type="file" class="form-control" id="dataDictFile" name="data_dict_file" accept=".txt,.csv,.xlsx">
+                            </div>
+                            <div class="col-auto">
+                                <button type="submit" class="btn btn-outline-primary">
+                                    <i class="fas fa-upload"></i> Upload Data Dictionary
+                                </button>
+                            </div>
+                            <div class="col-auto">
+                                <span id="dataDictStatus"></span>
+                            </div>
+                        </form>
+                        <form id="uploadDomainModelForm" enctype="multipart/form-data" class="row g-2 align-items-center mb-2">
+                            <div class="col-auto flex-grow-1">
+                                <input type="file" class="form-control" id="domainModelFile" name="domain_model_file" accept=".txt,.csv,.xlsx">
+                            </div>
+                            <div class="col-auto">
+                                <button type="submit" class="btn btn-outline-primary">
+                                    <i class="fas fa-upload"></i> Upload Domain Model
+                                </button>
+                            </div>
+                            <div class="col-auto">
+                                <span id="domainModelStatus"></span>
+                            </div>
+                        </form>
+                        <div id="uploadStatus" class="mt-2"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Main Content Row -->
+        <div class="row">
+            <!-- Main Mapping Interface -->
+            <div class="col-lg-8">
+                <div class="mapping-container">
+                    <h4><i class="fas fa-cogs"></i> Data Mapping Interface</h4>
+                    <!-- Stage Fields Mapping Table -->
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-hover">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th style="width: 40%;">Stage Fields</th>
+                                    <th style="width: 60%;">Mapping</th>
+                                </tr>
+                            </thead>
+                            <tbody id="mappingTableBody">
+                                {% for field in stage_fields %}
+                                {% if field == 'employerGroups' %}
+                                <tr>
+                                    <td colspan="2">
+                                        <div class="stage-field mb-2">
+                                            <strong>Employer Group</strong> <span class="text-muted">(Single set of fields)</span>
+                                        </div>
+                                        <div class="card mb-3 p-3" id="employerGroupCard">
+                                            <div class="mb-3">
+                                                <label class="form-label mb-1">groupName</label>
+                                                <div class="input-group">
+                                                    <input type="text" class="form-control mapping-input" placeholder="Mapping for groupName" data-eg-field="groupName">
+                                                    <div class="input-group-append">
+                                                        <button class="btn btn-outline-secondary btn-sm" type="button" onclick="clearEmployerGroupField('groupName')"><i class="fas fa-eraser"></i></button>
+                                                        <button class="btn btn-outline-info btn-sm" type="button" onclick="previewEmployerGroupField('groupName')"><i class="fas fa-eye"></i></button>
+                                                        <button class="btn btn-success btn-sm" type="button" onclick="saveIndividualMapping('employerGroups')"><i class="fas fa-save"></i></button>
+                                                    </div>
+                                                </div>
+                                                <div id="preview_employerGroup_groupName" class="mt-1"></div>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="form-label mb-1">groupStatus</label>
+                                                <div class="input-group">
+                                                    <input type="text" class="form-control mapping-input" placeholder="Mapping for groupStatus (Active/Termed)" data-eg-field="groupStatus">
+                                                    <div class="input-group-append">
+                                                        <button class="btn btn-outline-secondary btn-sm" type="button" onclick="clearEmployerGroupField('groupStatus')"><i class="fas fa-eraser"></i></button>
+                                                        <button class="btn btn-outline-info btn-sm" type="button" onclick="previewEmployerGroupField('groupStatus')"><i class="fas fa-eye"></i></button>
+                                                        <button class="btn btn-success btn-sm" type="button" onclick="saveIndividualMapping('employerGroups')"><i class="fas fa-save"></i></button>
+                                                    </div>
+                                                </div>
+                                                <div id="preview_employerGroup_groupStatus" class="mt-1"></div>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="form-label mb-1">addressLine1</label>
+                                                <div class="input-group">
+                                                    <input type="text" class="form-control mapping-input" placeholder="Mapping for addressLine1" data-eg-field="addressLine1">
+                                                    <div class="input-group-append">
+                                                        <button class="btn btn-outline-secondary btn-sm" type="button" onclick="clearEmployerGroupField('addressLine1')"><i class="fas fa-eraser"></i></button>
+                                                        <button class="btn btn-outline-info btn-sm" type="button" onclick="previewEmployerGroupField('addressLine1')"><i class="fas fa-eye"></i></button>
+                                                        <button class="btn btn-success btn-sm" type="button" onclick="saveIndividualMapping('employerGroups')"><i class="fas fa-save"></i></button>
+                                                    </div>
+                                                </div>
+                                                <div id="preview_employerGroup_addressLine1" class="mt-1"></div>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="form-label mb-1">addressLine2</label>
+                                                <div class="input-group">
+                                                    <input type="text" class="form-control mapping-input" placeholder="Mapping for addressLine2" data-eg-field="addressLine2">
+                                                    <div class="input-group-append">
+                                                        <button class="btn btn-outline-secondary btn-sm" type="button" onclick="clearEmployerGroupField('addressLine2')"><i class="fas fa-eraser"></i></button>
+                                                        <button class="btn btn-outline-info btn-sm" type="button" onclick="previewEmployerGroupField('addressLine2')"><i class="fas fa-eye"></i></button>
+                                                        <button class="btn btn-success btn-sm" type="button" onclick="saveIndividualMapping('employerGroups')"><i class="fas fa-save"></i></button>
+                                                    </div>
+                                                </div>
+                                                <div id="preview_employerGroup_addressLine2" class="mt-1"></div>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="form-label mb-1">zip</label>
+                                                <div class="input-group">
+                                                    <input type="text" class="form-control mapping-input" placeholder="Mapping for zip" data-eg-field="zip">
+                                                    <div class="input-group-append">
+                                                        <button class="btn btn-outline-secondary btn-sm" type="button" onclick="clearEmployerGroupField('zip')"><i class="fas fa-eraser"></i></button>
+                                                        <button class="btn btn-outline-info btn-sm" type="button" onclick="previewEmployerGroupField('zip')"><i class="fas fa-eye"></i></button>
+                                                        <button class="btn btn-success btn-sm" type="button" onclick="saveIndividualMapping('employerGroups')"><i class="fas fa-save"></i></button>
+                                                    </div>
+                                                </div>
+                                                <div id="preview_employerGroup_zip" class="mt-1"></div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td>
+                                        <div class="stage-field">
+                                            <strong>{{ field }}</strong>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="input-group">
+                                            <textarea 
+                                                id="mapping_{{ field }}" 
+                                                class="form-control mapping-input" 
+                                                rows="2" 
+                                                placeholder="Enter mapping expression (e.g., Upper(Trim(FirstName)))"
+                                                data-stage-field="{{ field }}"></textarea>
+                                            <div class="input-group-append">
+                                                <button class="btn btn-outline-secondary btn-sm" type="button" 
+                                                        onclick="clearMapping('{{ field }}')">
+                                                    <i class="fas fa-eraser"></i>
+                                                </button>
+                                                <button class="btn btn-outline-info btn-sm" type="button" 
+                                                        onclick="previewMapping('{{ field }}')">
+                                                    <i class="fas fa-eye"></i>
+                                                </button>
+                                                <button class="btn btn-success btn-sm" type="button" 
+                                                        onclick="saveIndividualMapping('{{ field }}')">
+                                                    <i class="fas fa-save"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div id="preview_{{ field }}" class="mt-1"></div>
+                                    </td>
+                                </tr>
+                                {% endif %}
+                                {% endfor %}
+    <script>
+    // Employer Group single mapping logic
+    function loadEmployerGroups(group) {
+        // group is an object with keys: groupName, groupStatus, addressLine1, addressLine2, zip
+        if (!group || typeof group !== 'object') group = {};
+        document.querySelector('#employerGroupCard [data-eg-field="groupName"]').value = group.groupName || '';
+        document.querySelector('#employerGroupCard [data-eg-field="groupStatus"]').value = group.groupStatus || '';
+        document.querySelector('#employerGroupCard [data-eg-field="addressLine1"]').value = group.addressLine1 || '';
+        document.querySelector('#employerGroupCard [data-eg-field="addressLine2"]').value = group.addressLine2 || '';
+        document.querySelector('#employerGroupCard [data-eg-field="zip"]').value = group.zip || '';
+    }
+
+    function clearEmployerGroupField(field) {
+        document.querySelector(`#employerGroupCard [data-eg-field="${field}"]`).value = '';
+        document.getElementById(`preview_employerGroup_${field}`).innerHTML = '';
+    }
+
+    function previewEmployerGroupField(field) {
+        const input = document.querySelector(`#employerGroupCard [data-eg-field="${field}"]`).value;
+        const sampleData = prompt('Enter sample data for preview:', 'Sample Value');
+        if (!input || !sampleData) return;
+        fetch('/preview_transformation', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ expression: input, sample_data: sampleData })
+        })
+        .then(response => response.json())
+        .then(data => {
+            const previewDiv = document.getElementById(`preview_employerGroup_${field}`);
+            if (data.success) {
+                previewDiv.innerHTML = `<div class="preview-result">Preview: <strong>${data.result}</strong></div>`;
+            } else {
+                previewDiv.innerHTML = `<small class="text-danger">Error: ${data.error}</small>`;
+            }
+        });
+    }
+    </script>
+                            </tbody>
+                        </table>
+                    </div>
+                    <!-- Bulk Actions -->
+                    <div class="mt-3">
+                        <button type="button" class="btn btn-primary" onclick="saveAllMappings()">
+                            <i class="fas fa-save"></i> Save All Mappings
+                        </button>
+                        <button type="button" class="btn btn-warning" onclick="clearAllMappings()">
+                            <i class="fas fa-trash"></i> Clear All Mappings
+                        </button>
+                        <button type="button" class="btn btn-info" onclick="exportMappings()">
+                            <i class="fas fa-download"></i> Export Mappings
+                        </button>
+                        <button type="button" class="btn btn-secondary" onclick="loadSampleMappings()">
+                            <i class="fas fa-magic"></i> Load Sample Mappings
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sidebar with Headers and Rules -->
+            <!-- SQL Script Generation Section -->
+            <div class="col-12 mb-4">
+                <div class="card">
+                    <div class="card-header bg-dark text-white">
+                        <h5 class="mb-0"><i class="fas fa-database"></i> SQL Script Generation</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="sqlGenForm" class="row g-2 align-items-center mb-3">
+                            <div class="col-auto">
+                                <label for="sqlSourceTable" class="form-label mb-0">Source Table Name:</label>
+                            </div>
+                            <div class="col-auto">
+                                <input type="text" class="form-control" id="sqlSourceTable" value="silver.elig" style="min-width:180px;">
+                            </div>
+                            <div class="col-auto">
+                                <label for="sqlOutputTable" class="form-label mb-0">Output Table Name:</label>
+                            </div>
+                            <div class="col-auto">
+                                <input type="text" class="form-control" id="sqlOutputTable" value="output_Table" style="min-width:180px;">
+                            </div>
+                            <div class="col-auto">
+                                <button type="submit" class="btn btn-primary"><i class="fas fa-play"></i> Generate SQL Scripts</button>
+                            </div>
+                            <div class="col-auto">
+                                <button type="button" class="btn btn-success" id="downloadNotebookBtn" disabled><i class="fas fa-download"></i> Download as Notebook (.ipynb)</button>
+                            </div>
+                        </form>
+                        <div id="sqlScriptChunks" style="max-height:350px; overflow-y:auto;"></div>
+                        <div id="sqlGenStatus" class="mt-2"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-4">
+    <script>
+    // SQL Script Generation logic
+    let lastSqlChunks = [];
+    document.getElementById('sqlGenForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const tableName = document.getElementById('sqlSourceTable').value || 'silver.elig';
+        const outputTable = document.getElementById('sqlOutputTable').value || 'output_Table';
+        document.getElementById('sqlGenStatus').innerHTML = 'Generating SQL scripts...';
+        document.getElementById('sqlScriptChunks').innerHTML = '';
+        document.getElementById('downloadNotebookBtn').disabled = true;
+        fetch('/generate_sql_scripts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ source_table: tableName, output_table: outputTable })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                lastSqlChunks = data.sql_chunks || [];
+                let html = '';
+                lastSqlChunks.forEach((chunk, idx) => {
+                    html += `<div class='mb-2'><div class='fw-bold'>Chunk ${idx+1}:</div><div class='d-flex'><pre class='bg-light p-2 rounded flex-grow-1' style='font-size:13px;white-space:pre-wrap;' id='sqlChunk${idx}'>${chunk}</pre><button class='btn btn-outline-secondary btn-sm ms-2' onclick='copySqlChunk(${idx})'><i class='fas fa-copy'></i></button></div></div>`;
+                });
+                document.getElementById('sqlScriptChunks').innerHTML = html;
+                document.getElementById('sqlGenStatus').innerHTML = '<span class="text-success">SQL scripts generated.</span>';
+                document.getElementById('downloadNotebookBtn').disabled = false;
+            } else {
+                document.getElementById('sqlGenStatus').innerHTML = '<span class="text-danger">Error: ' + (data.error || 'Failed to generate SQL scripts') + '</span>';
+            }
+        })
+        .catch(err => {
+            document.getElementById('sqlGenStatus').innerHTML = '<span class="text-danger">Error: ' + err + '</span>';
+        });
+    });
+
+    // Copy SQL chunk to clipboard
+    function copySqlChunk(idx) {
+        const pre = document.getElementById('sqlChunk' + idx);
+        if (!pre) return;
+        const text = pre.textContent;
+        navigator.clipboard.writeText(text).then(() => {
+            pre.classList.add('border-success');
+            setTimeout(() => pre.classList.remove('border-success'), 800);
+        });
+    }
+
+    // Download as Notebook (.ipynb)
+    document.getElementById('downloadNotebookBtn').addEventListener('click', function() {
+        if (!lastSqlChunks.length) return;
+        // Build notebook JSON
+        const nb = {
+            cells: [
+                { cell_type: 'markdown', metadata: { language: 'markdown' }, source: ['# SQL Scripts for Domain Model ETL'] }
+            ].concat(
+                lastSqlChunks.map(chunk => ({
+                    cell_type: 'code',
+                    metadata: { language: 'sql' },
+                    source: [chunk]
+                }))
+            ),
+            metadata: { language_info: { name: 'sql' }, orig_nbformat: 4 },
+            nbformat: 4, nbformat_minor: 5
+        };
+        const blob = new Blob([JSON.stringify(nb, null, 2)], {type: 'application/x-ipynb+json'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'domain_model_etl.sql.ipynb';
+        a.click();
+        URL.revokeObjectURL(url);
+    });
+    </script>
+                <!-- Uploaded Source Files List -->
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h6><i class="fas fa-file"></i> Uploaded Source Files</h6>
+                    </div>
+                    <div class="card-body sidebar">
+                        <ul id="sourceFileList" class="mb-2"></ul>
+                    </div>
+                </div>
+                <!-- Source Headers -->
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h6><i class="fas fa-table"></i> Source File Headers</h6>
+                    </div>
+                    <div class="card-body sidebar" id="sourceHeaders">
+                        <em class="text-muted">Upload a source file to see headers</em>
+                    </div>
+                </div>
+                <!-- Transformation Rules -->
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h6><i class="fas fa-magic"></i> Transformation Rules</h6>
+                    </div>
+                    <div class="card-body sidebar">
+                        {% for rule, syntax in transformation_rules.items() %}
+                        <div class="transformation-rule" onclick="insertText('{{ syntax }}')">
+                            <strong>{{ rule }}</strong><br>
+                            <small class="text-muted">{{ syntax }}</small>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                <!-- Function Helper -->
+                <div class="function-helper">
+                    <h6><i class="fas fa-info-circle"></i> Function Helper</h6>
+                    <small>
+                        <strong>Examples:</strong><br>
+                        • <code>Upper(Trim(FirstName))</code><br>
+                        • <code>Concatenate(FirstName, " ", LastName)</code><br>
+                        • <code>Substring(SSN, 0, 3)</code><br>
+                        • <code>Replace(Phone, "-", "")</code><br>
+                        <br>
+                        <strong>Tips:</strong><br>
+                        • Click on source headers to insert field names<br>
+                        • Click on transformation rules to insert functions<br>
+                        • Focus on a mapping field first, then click headers/rules<br>
+                        • Use Ctrl+S to save individual mappings<br>
+                        • Use the preview button to test transformations
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Data Dictionary upload
+        document.getElementById('uploadDataDictForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData();
+            const fileInput = document.getElementById('dataDictFile');
+            formData.append('data_dict_file', fileInput.files[0]);
+            const statusSpan = document.getElementById('dataDictStatus');
+            statusSpan.textContent = 'Uploading...';
+            fetch('/upload_data_dict', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    statusSpan.textContent = 'Uploaded!';
+                    statusSpan.className = 'text-success ms-2';
+                } else {
+                    statusSpan.textContent = 'Error: ' + data.error;
+                    statusSpan.className = 'text-danger ms-2';
+                }
+            })
+            .catch(error => {
+                statusSpan.textContent = 'Error uploading: ' + error;
+                statusSpan.className = 'text-danger ms-2';
+            });
+        });
+
+        // Domain Model upload
+        document.getElementById('uploadDomainModelForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData();
+            const fileInput = document.getElementById('domainModelFile');
+            formData.append('domain_model_file', fileInput.files[0]);
+            const statusSpan = document.getElementById('domainModelStatus');
+            statusSpan.textContent = 'Uploading...';
+            fetch('/upload_domain_model', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    statusSpan.textContent = 'Uploaded!';
+                    statusSpan.className = 'text-success ms-2';
+                } else {
+                    statusSpan.textContent = 'Error: ' + data.error;
+                    statusSpan.className = 'text-danger ms-2';
+                }
+            })
+            .catch(error => {
+                statusSpan.textContent = 'Error uploading: ' + error;
+                statusSpan.className = 'text-danger ms-2';
+            });
+        });
+        // Global variables
+        let currentMappings = {};
+        let sourceHeaders = [];
+
+        // File upload handling
+        document.getElementById('uploadForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData();
+            const fileInput = document.getElementById('sourceFile');
+            formData.append('source_file', fileInput.files[0]);
+
+            fetch('/upload_source_file', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    sourceHeaders = data.headers;
+                    displaySourceHeaders(data.headers);
+                    document.getElementById('uploadStatus').innerHTML = 
+                        `<div class="alert alert-success">File "${data.filename}" uploaded successfully! (${data.sample_rows} sample rows loaded)</div>`;
+                    
+                    // Enable LLM mapping generation button
+                    document.getElementById('generateLLMBtn').disabled = false;
+                } else {
+                    document.getElementById('uploadStatus').innerHTML = 
+                        `<div class="alert alert-danger">Error: ${data.error}</div>`;
+                }
+            })
+            .catch(error => {
+                document.getElementById('uploadStatus').innerHTML = 
+                    `<div class="alert alert-danger">Error uploading file: ${error}</div>`;
+            });
+        });
+
+        // LLM Mapping Generation
+        document.getElementById('generateLLMBtn').addEventListener('click', function() {
+            generateLLMMappings();
+        });
+
+        function generateLLMMappings() {
+            const button = document.getElementById('generateLLMBtn');
+            const originalText = button.innerHTML;
+            
+            // Show loading state
+            button.disabled = true;
+            button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating Mappings...';
+            
+            // Show initial status
+            const statusDiv = document.getElementById('uploadStatus');
+            statusDiv.innerHTML = `<div class="alert alert-info">Generating mappings using Databricks LLM...</div>`;
+            fetch('/generate_llm_mappings', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({})
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success && data.mappings) {
+                    currentMappings = { ...data.mappings };
+                    loadMappingsIntoTable();
+                }
+                // Show SQL scripts in a separate box if present
+                let sqlScriptsHtml = '';
+                if (data.llm_output && data.llm_output.sql_scripts) {
+                    sqlScriptsHtml = `<div class="card mt-3"><div class="card-header"><strong>SQL Scripts (Databricks)</strong></div><div class="card-body"><pre style='font-size:12px;'>${typeof data.llm_output.sql_scripts === 'object' ? Object.entries(data.llm_output.sql_scripts).map(([k,v]) => `${k}:\n${v}`).join('\n\n') : data.llm_output.sql_scripts}</pre></div></div>`;
+                }
+                // Show success message with reasoning and print full LLM output
+                if (data.success) {
+                    statusDiv.innerHTML = `
+                        <div class="alert alert-success">
+                            <strong>AI Mappings Generated Successfully!</strong><br>
+                            <small>${data.reasoning || 'Mappings generated based on field analysis.'}</small>
+                            ${data.raw_response ? `<br><br><details><summary>View Full Response</summary><pre>${data.raw_response}</pre></details>` : ''}
+                            <br><br><details><summary>LLM Output (Full)</summary><pre>${JSON.stringify(data.llm_output, null, 2)}</pre></details>
+                        </div>
+                        ${sqlScriptsHtml}
+                    `;
+                } else {
+                    statusDiv.innerHTML = `
+                        <div class="alert alert-danger">
+                            <strong>LLM Error:</strong> ${data.error}<br>
+                            <small>
+                                <strong>Troubleshooting:</strong><br>
+                                1. Ensure LMStudio is running on ${lmstudioUrl}<br>
+                                2. Check that model "${llmModel}" is loaded<br>
+                                3. Verify LMStudio server is accessible<br>
+                                4. Check firewall/network settings
+                            </small>
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                statusDiv.innerHTML = `
+                    <div class="alert alert-danger">
+                        <strong>Connection Error:</strong> ${error.message}<br>
+                        <small>
+                            <strong>Common Solutions:</strong><br>
+                            • Start LMStudio and load the model<br>
+                            • Check if LMStudio server is running on ${lmstudioUrl}<br>
+                            • Try changing the URL to http://127.0.0.1:1234/v1<br>
+                            • Ensure no firewall is blocking the connection<br>
+                            • Check LMStudio console for errors
+                        </small>
+                    </div>
+                `;
+                console.error('LLM Generation Error:', error);
+            })
+            .finally(() => {
+                // Restore button state
+                button.disabled = false;
+                button.innerHTML = originalText;
+            });
+        }
+
+        // Display source headers in sidebar
+        function displaySourceHeaders(headers) {
+            const container = document.getElementById('sourceHeaders');
+            container.innerHTML = '';
+            
+            headers.forEach(header => {
+                const headerDiv = document.createElement('div');
+                headerDiv.className = 'source-header';
+                headerDiv.textContent = header;
+                headerDiv.onclick = () => insertText(header);
+                headerDiv.title = 'Click to insert into focused mapping field';
+                container.appendChild(headerDiv);
+            });
+        }
+
+        // Insert text into specific mapping field
+        function insertText(text, fieldName = null) {
+            let textarea;
+            if (fieldName) {
+                textarea = document.getElementById(`mapping_${fieldName}`);
+            } else {
+                // Find the currently focused textarea or use the first one
+                textarea = document.activeElement;
+                if (!textarea || !textarea.classList.contains('mapping-input')) {
+                    textarea = document.querySelector('.mapping-input');
+                }
+            }
+            
+            if (textarea) {
+                const start = textarea.selectionStart;
+                const end = textarea.selectionEnd;
+                const currentValue = textarea.value;
+                
+                textarea.value = currentValue.substring(0, start) + text + currentValue.substring(end);
+                textarea.focus();
+                textarea.setSelectionRange(start + text.length, start + text.length);
+            }
+        }
+
+        // Save individual mapping
+        function saveIndividualMapping(fieldName) {
+            if (fieldName === 'employerGroups') {
+                // Save the single employer group mapping as an object
+                const card = document.getElementById('employerGroupCard');
+                const group = {
+                    groupName: card.querySelector('[data-eg-field="groupName"]').value,
+                    groupStatus: card.querySelector('[data-eg-field="groupStatus"]').value,
+                    addressLine1: card.querySelector('[data-eg-field="addressLine1"]').value,
+                    addressLine2: card.querySelector('[data-eg-field="addressLine2"]').value,
+                    zip: card.querySelector('[data-eg-field="zip"]').value
+                };
+                fetch('/save_mapping', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        stage_field: fieldName,
+                        mapping_expression: JSON.stringify(group)
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        currentMappings[fieldName] = group;
+                        alert('Employer Group mapping saved!');
+                    } else {
+                        alert('Error: ' + data.error);
+                    }
+                });
+            } else {
+                const mappingExpression = document.getElementById(`mapping_${fieldName}`).value;
+                if (!mappingExpression.trim()) {
+                    alert('Please enter a mapping expression');
+                    return;
+                }
+                fetch('/save_mapping', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        stage_field: fieldName,
+                        mapping_expression: mappingExpression
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        currentMappings[fieldName] = mappingExpression;
+                        // Show success indicator
+                        const previewDiv = document.getElementById(`preview_${fieldName}`);
+                        previewDiv.innerHTML = '<small class="text-success">✓ Saved</small>';
+                        setTimeout(() => {
+                            previewDiv.innerHTML = '';
+                        }, 2000);
+                    } else {
+                        alert('Error: ' + data.error);
+                    }
+                });
+            }
+        }
+
+        // Preview mapping for a specific field
+        function previewMapping(fieldName) {
+            const expression = document.getElementById(`mapping_${fieldName}`).value;
+            const sampleData = prompt('Enter sample data for preview:', 'John Doe');
+            
+            if (!expression || !sampleData) {
+                return;
+            }
+
+            fetch('/preview_transformation', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    expression: expression,
+                    sample_data: sampleData
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                const previewDiv = document.getElementById(`preview_${fieldName}`);
+                if (data.success) {
+                    previewDiv.innerHTML = `<div class="preview-result">Preview: <strong>${data.result}</strong></div>`;
+                } else {
+                    previewDiv.innerHTML = `<small class="text-danger">Error: ${data.error}</small>`;
+                }
+            });
+        }
+
+        // Clear individual mapping
+        function clearMapping(fieldName) {
+            document.getElementById(`mapping_${fieldName}`).value = '';
+            document.getElementById(`preview_${fieldName}`).innerHTML = '';
+        }
+
+        // Save all mappings
+        function saveAllMappings() {
+            const mappings = {};
+            let hasAnyMapping = false;
+
+            document.querySelectorAll('.mapping-input').forEach(input => {
+                const fieldName = input.getAttribute('data-stage-field');
+                const mapping = input.value.trim();
+                if (mapping) {
+                    mappings[fieldName] = mapping;
+                    hasAnyMapping = true;
+                }
+            });
+
+            if (!hasAnyMapping) {
+                alert('No mappings to save');
+                return;
+            }
+
+            // Save each mapping
+            const promises = [];
+            for (const [fieldName, mapping] of Object.entries(mappings)) {
+                promises.push(
+                    fetch('/save_mapping', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            stage_field: fieldName,
+                            mapping_expression: mapping
+                        })
+                    })
+                );
+            }
+
+            Promise.all(promises)
+                .then(responses => Promise.all(responses.map(r => r.json())))
+                .then(results => {
+                    const errors = results.filter(r => !r.success);
+                    if (errors.length === 0) {
+                        alert('All mappings saved successfully!');
+                        currentMappings = {...currentMappings, ...mappings};
+                    } else {
+                        alert(`Some mappings failed to save: ${errors.map(e => e.error).join(', ')}`);
+                    }
+                });
+        }
+
+        // Load sample mappings
+        function loadSampleMappings() {
+            if (confirm('Load sample mappings? This will overwrite existing mappings.')) {
+                const sampleMappings = {
+                    'member_first_name': 'Upper(Trim(FirstName))',
+                    'member_last_name': 'Upper(Trim(LastName))',
+                    'mbrDOB': 'DOB',
+                    'mbrGender': 'Upper(Gender)',
+                    'ssn': 'SSN',
+                    'memberID': 'MemberID',
+                    'enrollmentStatus': 'CoverageStatus'
+                };
+
+                for (const [field, mapping] of Object.entries(sampleMappings)) {
+                    const input = document.getElementById(`mapping_${field}`);
+                    if (input) {
+                        input.value = mapping;
+                    }
+                }
+                alert('Sample mappings loaded!');
+            }
+        }
+
+        // Clear all mappings
+        function clearAllMappings() {
+            if (confirm('Clear all mappings?')) {
+                fetch('/clear_mappings', {
+                    method: 'POST'
+                })
+                .then(response => response.json())
+                .then(data => {
+                    currentMappings = {};
+                    // Clear all input fields
+                    document.querySelectorAll('.mapping-input').forEach(input => {
+                        input.value = '';
+                    });
+                    // Clear all preview divs
+                    document.querySelectorAll('[id^="preview_"]').forEach(div => {
+                        div.innerHTML = '';
+                    });
+                    alert('All mappings cleared!');
+                });
+            }
+        }
+
+        // Export mappings
+        function exportMappings() {
+            fetch('/export_mappings')
+            .then(response => response.json())
+            .then(data => {
+                const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'eligibility_mappings.json';
+                a.click();
+                URL.revokeObjectURL(url);
+            });
+        }
+
+        // Load mappings into the table
+        function loadMappingsIntoTable() {
+            for (const [field, mapping] of Object.entries(currentMappings)) {
+                if (field === 'employerGroups') {
+                    let group = mapping;
+                    if (typeof group === 'string') {
+                        try { group = JSON.parse(group); } catch { group = {}; }
+                    }
+                    loadEmployerGroups(group);
+                } else {
+                    const input = document.getElementById(`mapping_${field}`);
+                    if (input) {
+                        input.value = mapping;
+                    }
+                }
+            }
+        }
+
+        // Load existing mappings into the table
+        function loadExistingMappings() {
+            fetch('/get_mappings')
+            .then(response => response.json())
+            .then(data => {
+                currentMappings = data;
+                loadMappingsIntoTable();
+            });
+        }
+
+        // Initialize the interface
+        document.addEventListener('DOMContentLoaded', function() {
+            loadExistingMappings();
+            
+            // Add event listeners for better UX
+            document.querySelectorAll('.mapping-input').forEach(input => {
+                input.addEventListener('keydown', function(e) {
+                    // Save with Ctrl+S
+                    if (e.ctrlKey && e.key === 's') {
+                        e.preventDefault();
+                        const fieldName = this.getAttribute('data-stage-field');
+                        saveIndividualMapping(fieldName);
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>
