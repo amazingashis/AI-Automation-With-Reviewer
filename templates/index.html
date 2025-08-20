@@ -449,13 +449,34 @@
         if (!lastSqlChunks.length) return;
         // Join all SQL chunks with two newlines between
         const sqlContent = lastSqlChunks.join('\n\n');
-        const blob = new Blob([sqlContent], {type: 'text/sql'});
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'domain_model_etl.sql';
-        a.click();
-        URL.revokeObjectURL(url);
+        const filename = 'domain_model_etl.sql';
+        // Save a copy to backend before downloading
+        fetch('/save_sql_export', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sql_content: sqlContent, filename })
+        })
+        .then(res => res.json())
+        .then(data => {
+            // Proceed with download regardless of backend result
+            const blob = new Blob([sqlContent], {type: 'text/sql'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(url);
+        })
+        .catch(() => {
+            // Fallback: just download if backend fails
+            const blob = new Blob([sqlContent], {type: 'text/sql'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(url);
+        });
     });
     </script>
                 <!-- Source Headers -->

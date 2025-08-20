@@ -1,3 +1,20 @@
+# --- SQL Export Save Endpoint ---
+from flask import request
+
+@app.route('/save_sql_export', methods=['POST'])
+def save_sql_export():
+    data = request.get_json() or {}
+    sql_content = data.get('sql_content')
+    filename = data.get('filename', 'domain_model_etl.sql')
+    reviewed_dir = os.path.join('code-reviewer-feature-databricks', 'Reviewed_files')
+    os.makedirs(reviewed_dir, exist_ok=True)
+    file_path = os.path.join(reviewed_dir, filename)
+    try:
+        with open(file_path, 'w', encoding='utf-8') as f:
+            f.write(sql_content or '')
+        return jsonify({'success': True, 'path': file_path})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
 # --- SQL Script Generation Endpoint ---
 from sql_generator import generate_sql_scripts
 
