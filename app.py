@@ -2,10 +2,15 @@
 # --- Flask Imports ---
 from flask import Flask, request, render_template, jsonify, redirect, url_for
 
+
 app = Flask(__name__)
-register_sql_scripts_endpoint(app)
 app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
+
+# ...existing code...
+
+# Register SQL scripts endpoint after its definition
+register_sql_scripts_endpoint(app)
 
 # --- SQL Export Save Endpoint ---
 @app.route('/save_sql_export', methods=['POST'])
